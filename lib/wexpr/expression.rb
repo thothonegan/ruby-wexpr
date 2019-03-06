@@ -351,13 +351,13 @@ module Wexpr
 		# -------------------- PRIVATE ----------------------------
 		
 		def self.s_is_newline(c)
-			return c == '\n'
+			return c == "\n"
 		end
 		
 		def self.s_is_whitespace(c)
 			# we put \r in whitespace and not newline so its counted as a column instead of a line, cause windows.
 			# we dont support classic macos style newlines properly as a side effect.
-			return (c == ' ' || c == '\t' || c ==' \r' || self.s_is_newline(c))
+			return (c == ' ' or c == "\t" or c ==" \r" or self.s_is_newline(c))
 		end
 		
 		def self.s_is_not_bareword_safe(c)
@@ -375,16 +375,16 @@ module Wexpr
 		end
 		
 		def self.s_is_escape_valid(c)
-			return (c == '"' || c == 'r' || c == 'n' || c == 't' || c == '\\')
+			return (c == '"' || c == 'r' || c == 'n' || c == 't' || c == "\\")
 		end
 		
 		def self.s_value_for_escape(c)
 			return case c
 				when '"' then '"'
-				when 'r' then '\r'
-				when 'n' then '\n'
-				when 't' then '\t'
-				when '\\' then '\\'
+				when 'r' then "\r"
+				when 'n' then "\n"
+				when 't' then "\t"
+				when "\\" then "\\"
 			else
 				0 # invalid escape
 			end
@@ -421,7 +421,7 @@ module Wexpr
 					end
 					
 					endIndex = isTillNewline \
-						? str.index('\n') \
+						? str.index("\n") \
 						: str.index(Expression::END_BLOCK_COMMENT)
 					
 					lengthToSkip = isTillNewline ? 1 : Expression::END_BLOCK_COMMENT.size
@@ -477,7 +477,7 @@ module Wexpr
 							# end quote, part of us
 							pos += 1
 							break
-						elsif c == '\\'
+						elsif c == "\\"
 							# we're escaping
 							isEscaped = true
 						else
@@ -524,7 +524,7 @@ module Wexpr
 						writePos += 1
 						isEscaped = false
 					else
-						if c == '\\'
+						if c == "\\"
 							# we're escaping
 							isEscaped = true
 						else

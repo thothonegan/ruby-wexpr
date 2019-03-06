@@ -15,4 +15,14 @@ class WexprTest < Minitest::Test
 		expected = {"array" => ["1", "2", "3"], "map" => {"a" => "b", "c" => "d"} }
 		assert_equal expected, val
 	end
+	
+	def test_can_load_newlines
+		val = Wexpr.load("@(\n)")
+		assert_equal Hash, val.class
+	end
+	
+	def test_can_load_with_ending_newline
+		val = Wexpr.load("@()\n")
+		assert_equal Hash, val.class
+	end
 end

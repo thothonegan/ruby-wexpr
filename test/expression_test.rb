@@ -183,4 +183,11 @@ class ExpressionTest < Minitest::Test
 		assert_equal :binarydata, e.type
 		assert_equal "hello", e.binarydata
 	end
+	
+	# this is messing up for some reason, checking though its internal
+	def test_is_newline_whitespace()
+		assert Wexpr::Expression.s_is_newline("\n")
+		assert Wexpr::Expression.s_is_whitespace("\n")
+		assert Wexpr::Expression.s_is_not_bareword_safe("\n")
+	end
 end
