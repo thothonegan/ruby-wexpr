@@ -27,6 +27,13 @@ class ExpressionTest < Minitest::Test
 		assert_equal "val\"", e.value
 	end
 	
+	def test_can_encode_escaped_value()
+		e = Wexpr::Expression.create_from_string(%q["val\""])
+		buf = e.create_string_representation(0, [])
+		
+		assert_equal %q["val\""], buf
+	end
+	
 	def test_can_create_number()
 		e = Wexpr::Expression.create_from_string("2.45")
 		
