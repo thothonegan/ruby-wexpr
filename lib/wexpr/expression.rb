@@ -390,6 +390,22 @@ module Wexpr
 			end
 		end
 		
+		def self.s_requires_escape(c)
+			return (c == '"' || c == "\r" || c == "\n" || c == "\t" || c == "\\")
+		end
+		
+		def self.s_escape_for_value(c)
+			return case c
+				when '"' then '"'
+				when "\r" then "r"
+				when "\n" then "n"
+				when "\t" then "t"
+				when "\\" then "\\"
+			else
+				0 # invalid escape
+			end
+		end
+		
 		# trims the given string by removing whitespace or comments from the beginning of the string
 		def self.s_trim_front_of_string(str, parserState)
 			while true
@@ -882,7 +898,15 @@ module Wexpr
 					newBuf += '"'
 				end
 				
-# 				newBuf += v
+				# do per character so we can escape as needed
+				for c in v.chars
+					if Expression.s_requires_escape(c)
+						newBuf += "\\"
+						newBuf += Expression.s_escape_for_value(c)
+					else
+						newBuf += c
+					end
+				end
 				
 				if not props[:isbarewordsafe]
 					newBuf += '"'
