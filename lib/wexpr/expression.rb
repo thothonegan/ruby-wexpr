@@ -590,7 +590,7 @@ module Wexpr
 		
 		# returns the indent for the given amount
 		def self.s_indent(indent)
-			return "  " * indent
+			return "\t" * indent
 		end
 		
 		# copy an expression into self. lhs should be null cause we dont cleanup ourself atm (ruby note: might not be true).
