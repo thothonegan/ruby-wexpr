@@ -345,8 +345,17 @@ module Wexpr
 			end
 		end
 		
-		# TODO: array operator for array and map
-		
+		# array operator for array and map
+		def [](index)
+			if @type == :array
+				return self.array_at(index)
+			elsif @type == :map
+				return self.map_value_for_key(index)
+			end
+			
+			# wrong type
+			return nil
+		end
 		
 		# -------------------- PRIVATE ----------------------------
 		

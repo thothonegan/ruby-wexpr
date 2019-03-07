@@ -197,4 +197,20 @@ class ExpressionTest < Minitest::Test
 		assert Wexpr::Expression.s_is_whitespace("\n")
 		assert Wexpr::Expression.s_is_not_bareword_safe("\n")
 	end
+	
+	def test_array_expression_can_use_brackets()
+		e = Wexpr::Expression.create_from_string("#(1 2 3)")
+		
+		# array, this should work
+		assert "1", e[0].value
+		assert "2", e[1].value
+		assert "3", e[2].value
+	end
+	
+	def test_map_expression_can_use_brackets()
+		e = Wexpr::Expression.create_from_string("@(a b)")
+		
+		# map, this should work
+		assert "b", e["a"].value
+	end
 end
