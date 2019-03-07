@@ -42,8 +42,8 @@ module Wexpr
 			parserState = PrivateParserState.new()
 			parserState.externalReferenceMap=referenceTable
 			
-			# TODO: check that str is valid UTF-8.
-			if true
+			# check that the string is valid UTF-8
+			if str.force_encoding('UTF-8').valid_encoding?
 				# now start parsing
 				rest = expr.p_parse_from_string(
 					str, parseFlags, parserState
