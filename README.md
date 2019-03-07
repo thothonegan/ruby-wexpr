@@ -2,10 +2,6 @@
 
 Ruby parser for the Wexpr format. See [libWexpr](https://github.com/thothonegan/libWexpr) for more details of the format.
 
-Current limitations:
-- Does not currently support the binary format.
-- Does not have `Wexpr.dump` for turning a ruby hash into the equivilant wexpr string.
-
 ## Installation
 
 Add this line to your application's Gemfile:

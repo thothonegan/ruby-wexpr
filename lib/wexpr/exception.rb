@@ -56,5 +56,11 @@ module Wexpr
 	class ReferenceUnknownReferenceError < Exception
 	end
 	
+	class BinaryChunkNotBigEnoughError < Exception
+	end
+	
+	class BinaryChunkNotBigEnoughError < Exception
+	end
+	
 end
 

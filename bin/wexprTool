@@ -5,12 +5,22 @@ require "wexpr"
 
 require 'optparse'
 
+WEXPR_BIN_VERSION = 0x00001000 # 0.1.0
+
+# the first 8 bytes of the header
+WEXPR_HEADER_MAGIC = [
+	0x83,
+	'B'.ord, 'W'.ord, 'E'.ord, 'X'.ord, 'P'.ord, 'R'.ord,
+	0x0A
+]
+WEXPR_HEADER_MAGIC_PACK = 'CCCCCCCC'
+
 # helper functions
 def readAllInputFrom(inputPath)
 	if inputPath == "-"
 		return STDIN.read()
 	else
-		return File.read(inputPath)
+		return File.read(inputPath, :mode => "rb")
 	end
 end
 
@@ -24,6 +34,31 @@ def writeAllOutputTo(outputPath, str)
 	end
 end
 
+def writeAllOutputWithFileHeaderTo(outputPath, data)
+	stream = STDOUT
+	if outputPath != "-"
+		stream = File.open(outputPath, "wb")
+	end
+	
+	# TODO: Move writing header to Wexpr, since its part of the file format
+	
+	header = WEXPR_HEADER_MAGIC # first 8 bytes
+	header += [
+		WEXPR_BIN_VERSION, #12
+		0,0,0,0,0,0,0,0 # reserved slots : header is 20 bytes
+	]
+	
+	headerSpec=WEXPR_HEADER_MAGIC_PACK + 'NC*'
+	stream.write(header.pack(headerSpec))
+	
+	# currently we have no aux chunks
+	
+	# write the main chunk
+	stream.write(data)
+	
+	# and done
+	stream.flush
+end
 
 #
 # Similar to libWexpr's WexprTool written in ruby
@@ -55,7 +90,7 @@ optparser = OptionParser.new do |opts|
 		puts "  humanReadable - [default] Makes the wexpr input human readable and outputs."
 		puts "  validate      - Checks the wexpr. If valid outputs 'true' and returns 0, otherwise 'false' and 1."
 		puts "  mini          - Minifies the wexpr output"
-		#puts "  binary        - Write the wexpr out as binary"
+		puts "  binary        - Write the wexpr out as binary"
 		exit
 	end
 	
@@ -75,9 +110,72 @@ if options[:command] == "humanReadable" or
 	isValidate = (options[:command] == "validate")
 	inputString = readAllInputFrom(options[:input])
 
-	# atm we dont check for binary, only handle text
+	expr = nil
+	
+	# determine if binary or not.
+	# if so strip the header and do the hunk
 	begin
-		expr = Wexpr::Expression.create_from_string(inputString)
+		if inputString.size >= 1 and inputString[0].ord == 0x83
+			if inputString.size < 20
+				raise StandardError.new "Invalid binary header - not big enough"
+			end
+			
+			if inputString.unpack(WEXPR_HEADER_MAGIC_PACK) != WEXPR_HEADER_MAGIC
+				raise StandardError.new "Invalid binary header - invalid magic"
+			end
+			
+			version = inputString[8..-1].unpack('N')[0]
+			
+			if version != WEXPR_BIN_VERSION
+				raise StandardError.new "Invalid binary header - unknown version 0x#{version.to_s(16)}"
+			end
+			
+			# make sure reserved is blank
+			# thats the remaining 8 bytes
+			if inputString[12..-1].unpack('CCCCCCCC') != [0]*8
+				raise StandardError.new "Invalid binary header - unknown reserved bits"
+			end
+			
+			# header seems valid, skip it
+			data = inputString
+			curPos = 20
+			endPos = data.size
+			
+			while curPos < endPos
+				# read the size and type
+				size, dataNew = Wexpr::UVLQ64::read(data[curPos..-1])
+				
+				# TODO: if !dataNewPos
+				
+				# dont move past the size yet. just track it for later
+				sizeSize = data.size-curPos - dataNew.size
+				
+				type = data[curPos+sizeSize].ord
+				
+				# given: type >= 0x00
+				if type <= 0x04 # its a known type
+					# cool parse it
+					if expr != nil
+						raise StandardError.new ("Found multiple expression chunks")
+					end
+					
+					# hand it the entire chunk including the size and the type
+					expr = Wexpr::Expression.create_from_binary_chunk(
+						data[curPos..-1]
+					)
+				else
+					STDERR.puts "Warning: Unknown chunk with type #{type} at byte 0x#{(curPos+sizeSize).to_s(16)} size is #{sizeSize}"
+				end
+				
+				# move forward : pass the type, pass the size
+				curPos += Wexpr::Expression::SIZE_U8 + sizeSize
+				curPos += size
+			end
+		else
+			# assume string
+			expr = Wexpr::Expression.create_from_string(inputString)
+		end
+		
 	rescue Wexpr::Exception => e
 		if isValidate
 			writeAllOutputTo(options[:output], "false\n")
@@ -101,8 +199,9 @@ if options[:command] == "humanReadable" or
 		
 	elsif options[:command] == "binary"
 		# FUTURE: create binary rep and write out
-		STDERR.puts "TODO"
-		exit 1
+		binData = expr.create_binary_representation()
+		
+		writeAllOutputWithFileHeaderTo(options[:output], binData)
 	end
 else
 	STDERR.puts "wexprTool: Unknown command"

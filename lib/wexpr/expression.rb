@@ -66,7 +66,17 @@ module Wexpr
 			return expr
 		end
 		
-		# TODO: create_from_binary_chunk
+		#
+		# Creates an expression from a binary chunk.
+		#
+		def self.create_from_binary_chunk(data)
+			expr = Expression.create_invalid()
+			
+			expr.p_parse_from_binary_chunk(data)
+			# result unused: remaining part of buffer
+			
+			return expr
+		end
 		
 		#
 		# Creates an empty invalid expression.
@@ -150,7 +160,6 @@ module Wexpr
 					return e
 					
 				when String
-					oldEncoding = variable.encoding
 					varC = +variable # + creates a dup mutable string if frozen
 					isUTF8 = varC.force_encoding('UTF-8').valid_encoding?
 					
@@ -209,7 +218,12 @@ module Wexpr
 			return newBuf
 		end
 		
-		# TODO: binary version (create_binary_representation)
+		#
+		# Create the binary representation for the current chunk. This contains an expression chunk and all of its child chunks, but NOT the file header.
+		#
+		def create_binary_representation()
+			raise Exception.new(0, 0, "TODO")
+		end
 		
 		# --- Values
 		
@@ -706,7 +720,128 @@ module Wexpr
 		# returns the part of the buffer remaining
 		# will load into self, setitng up everything. Assumes we're empty/null to start.
 		def p_parse_from_binary_chunk(data)
-			raise Exception(0, 0, "TODO - binary data")
+			if data.size < (1 + SIZE_U8) 
+				raise BinaryChunkNotBigEnoughError.new(0, 0, "Chunk not big enough for header: size was #{data.size}")
+			end
+			
+			size, dataNew = UVLQ64::read(data)
+			sizeSize = (data.size - dataNew.size)
+			chunkType = data[sizeSize].unpack('C')[0]
+			readAmount = sizeSize + SIZE_U8
+			
+			if chunkType == BIN_EXPRESSIONTYPE_NULL
+				# nothing more to do
+				self.change_type(:null)
+				
+				return data[readAmount .. -1]
+				
+			elsif chunkType == BIN_EXPRESSIONTYPE_VALUE
+				# data is the entire binary data
+				self.change_type(:value)
+				self.value_set(
+					data[readAmount...readAmount+size]
+				)
+				
+				readAmount += size
+				
+				return data[readAmount .. -1]
+				
+			elsif chunkType == BIN_EXPRESSIONTYPE_ARRAY
+				# data is child chunks
+				self.change_type(:array)
+				
+				curPos = 0
+				
+				# build children as needed
+				while curPos < size
+					# read a new element
+					startSize = size-curPos
+					
+					childExpr = Expression.create_invalid()
+					remaining = childExpr.p_parse_from_binary_chunk(
+						data[readAmount+curPos...readAmount+curPos+startSize]
+					)
+					
+					if remaining == nil
+						# failure when parsing the array
+						raise Exception.new(0, 0, "Failure when parsing array")
+					end
+					
+					curPos += (startSize - remaining.size)
+					
+					# otherwise, add it
+					self.array_add_element_to_end(childExpr)
+				end
+				
+				readAmount += curPos
+				return data[readAmount .. -1]
+				
+			elsif chunkType == BIN_EXPRESSIONTYPE_MAP
+				# data is key, value chunks
+				self.change_type(:map)
+				
+				curPos = 0
+				
+				# build children as needed
+				while curPos < size
+					# read a new key
+					startSize = size - curPos
+					
+					keyExpression = Expression.create_invalid()
+					remaining = keyExpression.p_parse_from_binary_chunk(
+						data[readAmount+curPos ... readAmount+curPos+startSize]
+					)
+					
+					if remaining == nil
+						raise Exception.new(0, 0, "Failure when parsing map key")
+					end
+					
+					keySize = startSize - remaining.size
+					curPos += keySize
+					
+					# now parse the value
+					valueExpr = Expression.create_invalid()
+					remaining = valueExpr.p_parse_from_binary_chunk(
+						remaining
+					)
+					
+					if remaining == nil
+						raise Exception.new(0, 0, "Failure when parsing map value")
+					end
+					
+					curPos += (startSize - remaining.size - keySize)
+					
+					# now add it
+					self.map_set_value_for_key(keyExpression.value, valueExpr)
+				end
+				
+				readAmount += curPos
+				return data[readAmount .. -1]
+				
+			elsif chunkType == BIN_EXPRESSIONTYPE_BINARYDATA
+				# data is the entire binary data
+				# first byte is the compression method
+				compression = data[readAmount].unpack('C')[0]
+				
+				if compression == 0x0 # NONE
+					# simple and raw
+					self.change_type(:binarydata)
+					self.binarydata_set(
+						data[readAmount+1...readAmount+size]
+					)
+					
+					puts "Got data: #{readAmount+1}...#{size-readAmount}"
+					
+					readAmount += size
+					return data[readAmount .. -1]
+				else
+					raise Exception.new(0, 0, "Unknown compression method for binary data")
+				end
+				
+			else
+				# unknown type
+				raise BinaryChunkNotBigEnoughError.new(0, 0, "Unknown chunk type to read: was #{chunkType}")
+			end
 		end
 		
 		# returns the part of the string remaining
@@ -1113,6 +1248,20 @@ module Wexpr
 		
 		START_BLOCK_COMMENT = ";(--"
 		END_BLOCK_COMMENT = "--)"
+		
+		# these are for porting sizeof() like operations over nicely
+		SIZE_U8 = 1
+		SIZE_U16 = 2
+		SIZE_U32 = 4
+		SIZE_U64 = 8
+		
+		# type codes for binary
+		BIN_EXPRESSIONTYPE_NULL = 0x00
+		BIN_EXPRESSIONTYPE_VALUE = 0x01
+		BIN_EXPRESSIONTYPE_ARRAY = 0x02
+		BIN_EXPRESSIONTYPE_MAP = 0x03
+		BIN_EXPRESSIONTYPE_BINARYDATA = 0x04
+		BIN_EXPRESSIONTYPE_INVALID = 0xFF
 		
 		# ----------------- MEMBERS ---------------
 		

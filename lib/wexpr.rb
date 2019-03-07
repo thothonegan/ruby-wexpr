@@ -1,6 +1,7 @@
 require 'wexpr/exception'
 require 'wexpr/expression'
 require 'wexpr/object_ext'
+require 'wexpr/uvlq64'
 require 'wexpr/version'
 
 #
@@ -31,5 +32,3 @@ module Wexpr
 	end
 	
 end
-
-## TODO: Inject to_wexpr
