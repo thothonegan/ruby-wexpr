@@ -25,4 +25,33 @@ class WexprTest < Minitest::Test
 		val = Wexpr.load("@()\n")
 		assert_equal Hash, val.class
 	end
+	
+	def test_can_dump
+		hash = {
+			"array" => [1, 2, 3],
+			"map" => { "v" => "9" },
+			"number" => 99
+		}
+		
+		str = Wexpr.dump(hash)
+		
+		# the order it might return the types is undefined, so our best way of testing
+		# is just to return it back to an hash and compare
+		hash2 = Wexpr.load(str)
+		
+		# it manipulates it slightly due to how values work, so adjust for that
+		expectedHash = {
+			"array" => ["1", "2", "3"],
+			"map" => { "v" => "9" },
+			"number" => "99"
+		}
+		
+		assert_equal expectedHash, hash2
+	end
+	
+	def test_can_use_to_wexpr
+		assert_equal "hi", "hi".to_wexpr
+		assert_equal "9", 9.to_wexpr
+		assert_equal "#(1 2 3)", [1, 2, 3].to_wexpr
+	end
 end

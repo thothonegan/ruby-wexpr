@@ -42,11 +42,13 @@ module Wexpr
 			parserState = PrivateParserState.new()
 			parserState.externalReferenceMap=referenceTable
 			
+			strC = +str  # + creates a dup mutable string if frozen
+			
 			# check that the string is valid UTF-8
-			if str.force_encoding('UTF-8').valid_encoding?
+			if strC.force_encoding('UTF-8').valid_encoding?
 				# now start parsing
 				rest = expr.p_parse_from_string(
-					str, parseFlags, parserState
+					strC, parseFlags, parserState
 				)
 				
 				postRest = Expression.s_trim_front_of_string(rest, parserState)
@@ -106,6 +108,62 @@ module Wexpr
 			expr.p_copy_from(self)
 			
 			return expr
+		end
+		
+		#
+		# Create from a ruby variable. Will convert as:
+		# If a nil value, will be a null expression.
+		# If an Array, will turn into an array expression (and recurse).
+		# If a Hash, will turn into a map expression (and recurse).
+		# If a String, and is UTF-8 safe, will turn into a value expression.
+		# If a String, and is not UTF-8 safe, will turn into a binary expression. [this case is weird due to how ruby handles memory.
+		# Otherwise, we just use .to_s and store that. Not sure if best, but we want to catch things like numbers.
+		#
+		def self.create_from_ruby(variable)
+			case variable
+				when NilClass
+					return Expression.create_null()
+					
+				when Array
+					e = Expression.create_null()
+					e.change_type(:array)
+					
+					variable.each do |val|
+						e.array_add_element_to_end(
+							Expression.create_from_ruby(val)
+						)
+					end
+					
+					return e
+					
+				when Hash
+					e = Expression.create_null()
+					e.change_type(:map)
+					
+					variable.each do |k, v|
+						ve = Expression.create_from_ruby(v)
+						
+						# key could technically be anything, so convert to string
+						e.map_set_value_for_key(k.to_s, ve)
+					end
+					
+					return e
+					
+				when String
+					oldEncoding = variable.encoding
+					varC = +variable # + creates a dup mutable string if frozen
+					isUTF8 = varC.force_encoding('UTF-8').valid_encoding?
+					
+					if isUTF8
+						return Expression.create_value(varC)
+					else
+						return Expression.create_binary_representation(variable)
+					end
+					
+				else
+					# might be a number or something else, to_s it
+					return Expression.create_value(variable.to_s)
+			end
 		end
 		
 		# --- Information

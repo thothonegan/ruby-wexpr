@@ -1,5 +1,6 @@
 require 'wexpr/exception'
 require 'wexpr/expression'
+require 'wexpr/object_ext'
 require 'wexpr/version'
 
 #
@@ -23,9 +24,10 @@ module Wexpr
 	#
 	def self.dump(variable, writeFlags=[])
 		# first step, go through the variable and create the equivilant wexpr expressions
+		expr = Expression::create_from_ruby(variable)
 		
 		# then have it write out the string
-		raise Exception.new(0, 0, "TODO")
+		return expr.create_string_representation(0, writeFlags)
 	end
 	
 end

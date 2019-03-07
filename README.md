@@ -5,7 +5,6 @@ Ruby parser for the Wexpr format. See [libWexpr](https://github.com/thothonegan/
 Current limitations:
 - Does not currently support the binary format.
 - Does not have `Wexpr.dump` for turning a ruby hash into the equivilant wexpr string.
-- Some rubyisms havent been implemented yet such as nice [] on an expression.
 
 ## Installation
 

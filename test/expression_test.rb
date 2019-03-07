@@ -213,4 +213,35 @@ class ExpressionTest < Minitest::Test
 		# map, this should work
 		assert "b", e["a"].value
 	end
+	
+	def test_can_create_from_ruby_null()
+		e = Wexpr::Expression::create_from_ruby(nil)
+		
+		assert_equal :null, e.type
+	end
+	
+	def test_can_create_from_ruby_value()
+		e = Wexpr::Expression::create_from_ruby("val")
+		
+		assert_equal :value, e.type
+		assert_equal "val", e.value
+	end
+	
+	def test_can_create_from_ruby_array()
+		e = Wexpr::Expression::create_from_ruby([0, 1, 2])
+		
+		assert_equal :array, e.type
+		assert_equal "0", e[0].value
+		assert_equal "1", e[1].value
+		assert_equal "2", e[2].value
+	end
+	
+	def test_can_create_from_hash()
+		e = Wexpr::Expression::create_from_ruby({"a" => "b", "c" => "d"})
+		
+		assert_equal :map, e.type
+		assert_equal 2, e.map_count
+		assert_equal "b", e["a"].value
+		assert_equal "d", e["c"].value
+	end
 end
