@@ -822,8 +822,9 @@ module Wexpr
 					# not found
 					raise BinaryDataNoEndingError.new(parserState.line, parserState.column, "Tried to find the ending > for binary data, but not found.")
 				end
-				
-				outBuf = Base64.decode64(str[1 .. endingQuote-1-1]) # -1 for starting quote, ending was not part
+
+				# we require strict so we fail out on incorrect padding
+				outBuf = Base64.strict_decode64(str[1 .. endingQuote-1]) # -1 for starting quote, ending was not part
 				if outBuf == nil
 					raise BinaryDataInvalidBase64Error.new(parserState.line, parserState.column, "Unable to decode the base64 data")
 				end
@@ -891,7 +892,7 @@ module Wexpr
 				
 			elsif type == :binarydata
 				# binary data - encode as Base64
-				v = Base64.encode64(self.binarydata)
+				v = Base64.strict_encode64(self.binarydata)
 				
 				newBuf += "<#{v}>"
 				
