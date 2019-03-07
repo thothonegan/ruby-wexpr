@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+
+require "bundler/setup"
+require "wexpr"
+
+require 'optparse'
+
+# helper functions
+def readAllInputFrom(inputPath)
+	if inputPath == "-"
+		return STDIN.read()
+	else
+		return File.read(inputPath)
+	end
+end
+
+def writeAllOutputTo(outputPath, str)
+	if outputPath == "-"
+		STDOUT.write "#{str}"
+	else
+		File.open(outputPath, "w") do |f|
+			f.write "#{str}"
+		end
+	end
+end
+
+
+#
+# Similar to libWexpr's WexprTool written in ruby
+#
+options = {
+	:command => "humanReadable",
+	:input => "-",
+	:output => "-"
+}
+
+optparser = OptionParser.new do |opts|
+	opts.banner = "Usage: #{$0} [OPTIONS]"
+	opts.on("-c", "--cmd=COMMAND", "Perform the requested command. Default is 'humanReadable'") do |command|
+		options[:command] = command
+	end
+	
+	opts.on("-i", "--input=FILE", "The input file to read from (default is -, stdin)") do |input|
+		options[:input] = input
+	end
+	
+	opts.on("-o", "--output=FILE", "The output file to read from (default is -, stdout)") do |output|
+		options[:output] = output
+	end
+	
+	opts.on("-h", "--help", "Display this help and exit") do
+		puts opts
+		puts ""
+		puts "Possible commands:"
+		puts "  humanReadable - [default] Makes the wexpr input human readable and outputs."
+		puts "  validate      - Checks the wexpr. If valid outputs 'true' and returns 0, otherwise 'false' and 1."
+		puts "  mini          - Minifies the wexpr output"
+		#puts "  binary        - Write the wexpr out as binary"
+		exit
+	end
+	
+	opts.on("-v", "--version", "Output the version and exit") do
+		puts "wexprTool #{Wexpr::VERSION}"
+		exit
+	end
+end
+
+optparser.parse!
+
+if options[:command] == "humanReadable" or
+	options[:command] == "validate" or
+	options[:command] == "mini" or
+	options[:command] == "binary"
+
+	isValidate = (options[:command] == "validate")
+	inputString = readAllInputFrom(options[:input])
+
+	# atm we dont check for binary, only handle text
+	begin
+		expr = Wexpr::Expression.create_from_string(inputString)
+	rescue Wexpr::Exception => e
+		if isValidate
+			writeAllOutputTo(options[:output], "false\n")
+		else
+			STDERR.puts "wexprTool: Error occurred with wexpr:"
+			STDERR.puts "wexprTool: #{options[:input]}:#{e.line}:#{e.column}: #{e.message}"
+		end
+		
+		exit 1
+	end
+
+	# loaded fine
+	if isValidate
+		writeAllOutputTo(options[:output], "true\n")
+
+	elsif options[:command] == "humanReadable"
+		writeAllOutputTo(options[:output], expr.create_string_representation(0, [:humanReadable]))
+		
+	elsif options[:command] == "mini"
+		writeAllOutputTo(options[:output], expr.create_string_representation(0, []))
+		
+	elsif options[:command] == "binary"
+		# FUTURE: create binary rep and write out
+		STDERR.puts "TODO"
+		exit 1
+	end
+else
+	STDERR.puts "wexprTool: Unknown command"
+	exit 1
+end
+
+# success
