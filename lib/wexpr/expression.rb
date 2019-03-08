@@ -222,7 +222,104 @@ module Wexpr
 		# Create the binary representation for the current chunk. This contains an expression chunk and all of its child chunks, but NOT the file header.
 		#
 		def create_binary_representation()
-			raise Exception.new(0, 0, "TODO")
+			buf = ""
+			
+			# format is:
+			# size, type, data
+			
+			if @type == :null
+				# data is 0x0
+				buf += UVLQ64::write(0)
+				buf += [BIN_EXPRESSIONTYPE_NULL].pack('C')
+				
+			elsif @type == :value
+				val = self.value
+				valLength = val.bytes.size
+				
+				buf += UVLQ64::write(valLength)
+				buf += [BIN_EXPRESSIONTYPE_VALUE].pack('C')
+				buf += val.bytes.pack('C*')
+				
+			elsif @type == :array
+				# first pass, figure out the total size
+				sizeOfArrayContents = 0
+				
+				for i in 0 ... self.array_count()
+					# TODO: dont create the entire representation twice - ability to ask for size
+					child = self.array_at(i)
+					childBuffer = child.create_binary_representation()
+					
+					sizeOfArrayContents += childBuffer.bytes.size
+				end
+				
+				# header
+				buf += UVLQ64::write(sizeOfArrayContents)
+				buf += [BIN_EXPRESSIONTYPE_ARRAY].pack('C*')
+				
+				# data
+				for i in 0 ... self.array_count()
+					child = self.array_at(i)
+					childBuffer = child.create_binary_representation()
+					
+					buf += childBuffer
+				end
+				
+				# done
+				
+			elsif @type == :map
+				# first pass, figure out the total size
+				sizeOfMapContents = 0
+				
+				for i in 0 ... self.map_count()
+					# TODO: dont create the entire representation twice - ability to ask for sizes
+					mapKey = self.map_key_at(i)
+					mapKeyLen = mapKey.bytes.size
+					
+					# write the map key as a new value
+					keySizeSize = UVLQ64::byte_size(mapKeyLen)
+					keySize = keySizeSize + SIZE_U8 + mapKeyLen
+					sizeOfMapContents += keySize
+					
+					# write the map value
+					mapValue = self.map_value_at(i)
+					childBuffer = mapValue.create_binary_representation()
+					sizeOfMapContents += childBuffer.bytes.size
+				end
+				
+				# second pass, write the header and pairs
+				buf += UVLQ64::write(sizeOfMapContents)
+				buf += [BIN_EXPRESSIONTYPE_MAP].pack('C')
+				
+				for i in 0 ... self.map_count()
+					mapKey = self.map_key_at(i)
+					mapKeyLen = mapKey.bytes.size
+					
+					# write the map key as a new value
+					buf += UVLQ64::write(mapKeyLen)
+					buf += [BIN_EXPRESSIONTYPE_VALUE].pack('C')
+					buf += mapKey.bytes.pack('C*')
+					
+					# write the map value
+					mapValue = self.map_value_at(i)
+					childBuffer = mapValue.create_binary_representation()
+					
+					buf += childBuffer
+				end
+				
+				# done
+			elsif @type == :binarydata
+				binData = self.binarydata
+				
+				buf += UVLQ64::write(binData.bytes.size+1) # +1 for compression method
+				buf += [BIN_EXPRESSIONTYPE_BINARYDATA].pack('C')
+				buf += [BIN_BINARYDATA_RAW].pack('C') # for now we never compress
+				buf += binData.bytes.pack('C*')
+				 
+			else
+				raise Exception.new(0, 0, "Unknown type")
+			end
+			
+			return buf
 		end
 		
 		# --- Values
@@ -830,8 +927,6 @@ module Wexpr
 						data[readAmount+1...readAmount+size]
 					)
 					
-					puts "Got data: #{readAmount+1}...#{size-readAmount}"
-					
 					readAmount += size
 					return data[readAmount .. -1]
 				else
@@ -1262,6 +1357,10 @@ module Wexpr
 		BIN_EXPRESSIONTYPE_MAP = 0x03
 		BIN_EXPRESSIONTYPE_BINARYDATA = 0x04
 		BIN_EXPRESSIONTYPE_INVALID = 0xFF
+		
+		# binarydata types
+		BIN_BINARYDATA_RAW = 0x00 # no compression
+		BIN_BINARYDATA_ZLIB = 0x01 # zlib deflate compression
 		
 		# ----------------- MEMBERS ---------------
 		
