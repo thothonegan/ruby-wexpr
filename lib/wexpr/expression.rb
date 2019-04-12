@@ -535,7 +535,7 @@ module Wexpr
 		def self.s_is_whitespace(c)
 			# we put \r in whitespace and not newline so its counted as a column instead of a line, cause windows.
 			# we dont support classic macos style newlines properly as a side effect.
-			return (c == ' ' or c == "\t" or c ==" \r" or self.s_is_newline(c))
+			return (c == ' ' or c == "\t" or c == "\r" or self.s_is_newline(c))
 		end
 		
 		def self.s_is_not_bareword_safe(c)
