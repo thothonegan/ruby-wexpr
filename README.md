@@ -7,14 +7,12 @@ Ruby parser for the Wexpr format. See [libWexpr](https://github.com/thothonegan/
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'wexpr', :git => "git://github.com/thothonegan/ruby-wexpr.git"
+gem 'wexpr'
 ```
 
 And then execute:
 
     $ bundle
-
-Currently it is not published to rubygems.
 
 ## Usage
 
