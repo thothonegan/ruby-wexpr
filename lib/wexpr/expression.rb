@@ -42,7 +42,7 @@ module Wexpr
 			parserState = PrivateParserState.new()
 			parserState.externalReferenceMap=referenceTable
 			
-			strC = +str  # + creates a dup mutable string if frozen
+			strC = str.dup  # + creates a dup mutable string if frozen
 			
 			# check that the string is valid UTF-8
 			if strC.force_encoding('UTF-8').valid_encoding?
