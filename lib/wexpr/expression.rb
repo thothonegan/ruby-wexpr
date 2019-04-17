@@ -199,7 +199,7 @@ module Wexpr
 			
 			# then init
 			if @type == :value
-				@value = ""
+				@value = "".freeze
 			elsif @type == :binarydata
 				@binarydata = ""
 			elsif @type == :array
@@ -343,7 +343,7 @@ module Wexpr
 				return
 			end
 			
-			@value = str
+			@value = str.dup.freeze
 		end
 		
 		# --- Binary Data
@@ -1157,7 +1157,7 @@ module Wexpr
 					@type = :null
 				else
 					@type = :value
-					@value = val
+					@value = val.dup.freeze
 				end
 				
 				parserState.move_forward_based_on_string(str[0..endPos-1])
