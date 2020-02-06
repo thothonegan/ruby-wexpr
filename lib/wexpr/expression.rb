@@ -1169,6 +1169,34 @@ module Wexpr
 			return ""
 		end
 		
+		##
+		# Will write the string escaped, and with quotes
+		# around it if needed.
+		#
+		def self.s_write_string_escaped(v, props)
+			buf = ''
+
+			if not props[:isbarewordsafe]
+				buf += '"'
+			end
+				
+			# do per character so we can escape as needed
+			for c in v.chars
+				if Expression.s_requires_escape(c)
+					buf += "\\"
+					buf += Expression.s_escape_for_value(c)
+				else
+					buf += c
+				end
+			end
+				
+			if not props[:isbarewordsafe]
+				buf += '"'
+			end
+
+			return buf
+		end
+
 		# NOTE THESE BUFFERS ARE ACTUALLY MUTABLE
 		#
 		# Human Readable notes:
@@ -1191,23 +1219,7 @@ module Wexpr
 				v = self.value
 				props = Expression.s_wexpr_value_string_properties(v)
 				
-				if not props[:isbarewordsafe]
-					newBuf += '"'
-				end
-				
-				# do per character so we can escape as needed
-				for c in v.chars
-					if Expression.s_requires_escape(c)
-						newBuf += "\\"
-						newBuf += Expression.s_escape_for_value(c)
-					else
-						newBuf += c
-					end
-				end
-				
-				if not props[:isbarewordsafe]
-					newBuf += '"'
-				end
+				newBuf += Expression.s_write_string_escaped(v, props)
 				
 				return newBuf
 				
@@ -1301,7 +1313,7 @@ module Wexpr
 					# if human readable, indent the line, output the key, space, object, newline
 					if writeHumanReadable
 						newBuf += Expression.s_indent(indent+1)
-						newBuf += key
+						newBuf += Expression.s_write_string_escaped(key, Expression.s_wexpr_value_string_properties(key))
 						newBuf += " "
 						
 						# add the value
@@ -1317,7 +1329,7 @@ module Wexpr
 						end
 						
 						# now key, space, value
-						newBuf += key
+						newBuf += Expression.s_write_string_escaped(key, Expression.s_wexpr_value_string_properties(key))
 						newBuf += " "
 						
 						newBuf = value.p_append_string_representation_to_buffer(flags, indent, newBuf)
