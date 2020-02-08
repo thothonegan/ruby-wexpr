@@ -170,8 +170,15 @@ module Wexpr
 					end
 					
 				else
-					# might be a number or something else, to_s it
-					return Expression.create_value(variable.to_s)
+					# see if we support to_wexpr
+					# if so, decode it with :returnAsExpression
+					if variable.class.method_defined?(:to_wexpr) && variable.method(:to_wexpr).owner != Object
+						# use that method
+						return variable.to_wexpr([:returnAsExpression])
+					else
+						# might be a number or something else, to_s it
+						return Expression.create_value(variable.to_s)
+					end
 			end
 		end
 		

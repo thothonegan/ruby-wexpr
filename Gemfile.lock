@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    wexpr (0.1.4)
+    wexpr (0.1.5)
 
 GEM
   remote: https://rubygems.org/
