@@ -546,19 +546,13 @@ module Wexpr
 		end
 		
 		def self.s_is_not_bareword_safe(c)
-			return (c == '*'               \
-				or c == '#'                \
-				or c == '@'                \
-				or c == '(' or c == ')'    \
-				or c == '[' or c == ']'    \
-				or c == '^'                \
-				or c == '<' or c == '>'    \
-				or c == '"'                \
-				or c == ';'                \
-				or self.s_is_whitespace(c) \
-			)
+			return /^(\*|\#|\@|\(|\)|\[|\]|\^|<|>|"|;|\s)$/.match? c
 		end
 		
+		def self.s_index_of_first_non_bareword(s, startIndex)
+			return s.index(/(\*|\#|\@|\(|\)|\[|\]|\^|<|>|"|;|\s)/, startIndex)
+		end
+
 		def self.s_is_escape_valid(c)
 			return (c == '"' || c == 'r' || c == 'n' || c == 't' || c == "\\")
 		end
@@ -647,11 +641,6 @@ module Wexpr
 		
 		# will copy out the value of the string to a new buffer, will parse out quotes as needed
 		def self.s_create_value_of_string(str, parserState)
-			# two pass:
-			# first pass, get the length of the size
-			# second pass, store the buffer
-			
-			bufferLength = 0
 			isQuotedString = false
 			isEscaped = false
 			pos = 0 # position we're parsing at
@@ -661,91 +650,75 @@ module Wexpr
 				pos += 1
 			end
 			
-			while pos < str.size
-				c = str[pos]
-				
-				if isQuotedString
+			# parse out and write the string
+			buffer = ""
+			writePos = 0
+			pos = 0
+			if isQuotedString
+				pos = 1
+				while pos < str.size
 					if isEscaped
-						# we're in an escape. Is it valid?
-						if self.s_is_escape_valid(c)
-							bufferLength += 1 # counts
-							isEscaped = false # escape ended
-						else
-							raise InvalidStringEscapeError.new(parserState.line, parserState.column, "Invalid escape found in the string")
-						end
+						c = str[pos]
+						escapedValue = self.s_value_for_escape(c)
+						buffer[writePos] = escapedValue
+						writePos += 1
+						isEscaped = false
 					else
+						# move forward to the next escape or end of string
+						ni = str.index(/["\\]/, pos)
+						if ni == nil
+							# uhhhh no possible end to string - missing a quote?
+							raise StringMissingQuoteError.new(parserState.line, parserState.column, "String was quoted, but couldnt find an ending quote")
+						end
+
+						# otherwise, copy up to the pos
+						if ni != 0
+							sub = str[pos..ni-1]
+							buffer += sub
+							pos += sub.size
+							writePos += sub.size
+						end
+
+						# Now we're on top of a special character
+						c = str[pos]
 						if c == '"'
-							# end quote, part of us
+							# end quote, part of us and we're done
 							pos += 1
 							break
 						elsif c == "\\"
 							# we're escaping
 							isEscaped = true
 						else
-							# otherwise it's a character
-							bufferLength += 1
+							raise StandardError.new("INTERNAL ERROR: reached a special character, but not an expected special character??? (was: #{c} at #{pos})")
 						end
 					end
-				else
-					# have we ended the word?
-					if self.s_is_not_bareword_safe(c)
-						# ended - not part of us
-						break
-					end
 					
-					# otherwise, its a character
-					bufferLength += 1
+					# next character
+					pos += 1
 				end
-				
-				pos += 1
+			else # !isQuotedString
+
+				# figure out where we would end the word
+				sub = str[pos..-1]
+				i = self.s_index_of_first_non_bareword(sub, pos)
+				if i == nil
+					# entire rest is fine
+					buffer += sub
+					pos += sub.size
+					writePos += sub.size
+				else
+					# up to i is fine
+					buffer += sub[0..i-1]
+					pos += i
+					writePos += i
+				end
 			end
-			
-			if bufferLength == 0 and !isQuotedString # cannot have an empty barewords string
+
+			if writePos == 0 and !isQuotedString # cannot have an empty barewords string
 				raise EmptyStringError.new(parserState.line, parserState.column, "Was told to parse an empty string")
 			end
-			
-			endVal = pos
-			
-			# we now know our buffer size and the string has been checked
-			# ... not that we needed this in ruby
-			buffer = ""
-			writePos = 0
-			pos = 0
-			if isQuotedString
-				pos = 1
-			end
-			
-			while writePos < bufferLength
-				c = str[pos]
-			
-				if isQuotedString
-					if isEscaped
-						escapedValue = self.s_value_for_escape(c)
-						buffer[writePos] = escapedValue
-						writePos += 1
-						isEscaped = false
-					else
-						if c == "\\"
-							# we're escaping
-							isEscaped = true
-						else
-							# otherwise it's a character
-							buffer[writePos] = c
-							writePos += 1
-						end
-					end
-					
-				else
-					# it's a character
-					buffer[writePos] = c
-					writePos += 1
-				end
-				
-				# next character
-				pos += 1
-			end
-			
-			return buffer, endVal
+
+			return buffer, pos
 		end
 		
 		# returns information about a string
@@ -950,7 +923,7 @@ module Wexpr
 		# will load into self, setting up everything. Assumes we're empty/null to start.
 		def p_parse_from_string(str, parseFlags, parserState)
 			if str.size == 0
-				raise EmptyStringError(parserState.line, parserState.column, "Was told to parse an empty string")
+				raise EmptyStringError.new(parserState.line, parserState.column, "Was told to parse an empty string")
 			end
 			
 			# now we parse
@@ -1029,7 +1002,7 @@ module Wexpr
 						str = keyExpression.p_parse_from_string(str, parseFlags, parserState)
 						
 						if keyExpression.type != :value
-							raise MapKeyMustBeAValueError.new(prevLine, prevColumn, "Map keys must be a value")
+							raise MapKeyMustBeAValueError.new(prevLine, prevColumn, "Map keys must be a value: was #{keyExpression.type}")
 						end
 						
 						valueExpression = Expression.create_invalid()

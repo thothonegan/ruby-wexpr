@@ -44,6 +44,9 @@ module Wexpr
 	class MapNoValueError < Exception
 	end
 	
+	class StringMissingQuoteError < Exception
+	end
+
 	class ReferenceMissingEndBracketError < Exception
 	end
 	

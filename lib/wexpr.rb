@@ -1,8 +1,8 @@
-require 'wexpr/exception'
-require 'wexpr/expression'
-require 'wexpr/object_ext'
-require 'wexpr/uvlq64'
-require 'wexpr/version'
+require_relative 'wexpr/exception'
+require_relative 'wexpr/expression'
+require_relative 'wexpr/object_ext'
+require_relative 'wexpr/uvlq64'
+require_relative 'wexpr/version'
 
 #
 # Ruby-Wexpr library
